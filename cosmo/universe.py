@@ -34,7 +34,6 @@ class Universe:
         self.Theta27 = 1.01 # Temperature CMB in unit 2.7K
         # class parameters
         self.exact_distances_threshold = 0.01
-        self.distance_unit = 'Mpc'
         self.camb_path = '/Users/tdelubac/Work/Log/camb/'
         # Booleans
         self.exact_distances = False
@@ -95,20 +94,9 @@ class Universe:
 
     def Get_distance_unit(self):
         '''
-        Return current distance unit
+        Return distance unit (Mpc)
         '''
-        return self.distance_unit
-
-    def Set_distance_unit(self,unit):
-        '''
-        Set distance unit. Choices are 'Mpc' or 'Mpc/h'
-        '''
-        unit_list = ['Mpc','Mpc/h']
-        if unit not in unit_list:
-            print('### ERROR ### Set_distance_unit :',unit,'not available. Choices are',unit_list)
-        else:
-            self.distance_unit = unit
-        return
+        return 'Mpc'
 
     def Set_exact_disctances(self,bool):
         '''
@@ -158,10 +146,7 @@ class Universe:
         Ot = self.Omega_m_h2/self.h**2 + self.Omega_l + self.Omega_r
         Ok = 1 - Ot
         hubble = 100*np.sqrt(self.Omega_r*(1+z)**4 + self.Omega_m_h2/self.h**2*(1+z)**3 + Ok*(1+z)**2 + self.Omega_l)
-        if self.distance_unit == 'Mpc':
-            return self.h*hubble
-        if self.distance_unit == 'Mpc/h':
-            return hubble
+        return self.h*hubble
 
     def Comoving_distance(self,z):
         '''
@@ -433,11 +418,6 @@ class Universe:
         camb_results = ascii.read(os.path.join(self.camb_path,outfile))
         k = camb_results['col1'].data
         Pk = camb_results['col2'].data
-        '''
-        if self.distance_unit == 'Mpc/h':
-            k/=params['h']
-            Pk*=params['h']**3
-            '''
         return (k,Pk)
 
     def Pk_growth(self,z=0,sig_v=4.48,damping=True):
@@ -754,7 +734,7 @@ class Universe:
         if logscale:
             p.yscale('log')
         p.xlabel('redshift')
-        p.ylabel('distance ('+self.distance_unit+')')
+        p.ylabel('distance (Mpc)')
         p.show()
         return
 
