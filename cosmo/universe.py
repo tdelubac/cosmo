@@ -219,6 +219,10 @@ class Universe:
     def Comoving_volume(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
         '''
         Compute the comoving volume given a redshift range and angles on the sky
+        z = [z_min, z_max] : 2-dimensional array containing redshift bounds
+        ra = [ra_min, ra_max] : 2-dimensional array containing RA bounds (default radians) 
+        dec = [dec_min, dec_max] : 2-dimensional array containing Dec bounds (default radians) 
+        degrees = {True, False} : if True uses degrees, else radians
         '''
         Chi = self.Comoving_distance(z[1]) - self.Comoving_distance(z[0])
         ang = sky.Solid_angle(ra,dec,degrees)
