@@ -65,7 +65,7 @@ class Universe:
         '''
         Return dictionary with parameters unit
         '''
-        return {'Omega_m_h2':'none', 'Omega_b_h2':'none', 'Omega_l':'none', 'Omega_r':'none', 'h':'none', 'c':'km/s', 'Theta27':'2.7K'}
+        return {'Omega_m_h2':'none', 'Omega_b_h2':'none', 'Omega_l':'none', 'Omega_r':'none', 'h':'none', 'c':'km/s', 'Theta27':'2.7K', 'sigma8':'none', 'n_s':'none'}
 
     def Set_param(self, Omega_m_h2=False, Omega_b_h2=False, Omega_l=False, Omega_r=False, h=False, c=False, Theta27=False, sigma8=False, n_s=False):
         '''
