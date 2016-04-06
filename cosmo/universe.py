@@ -201,20 +201,6 @@ class Universe:
 # Volumes
 #
 #--------------------------------
-    def Comoving_volume(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
-        '''
-        Compute the comoving volume given a redshift range and angles on the sky
-        z = [z_min, z_max] : 2-dimensional array containing redshift bounds
-        ra = [ra_min, ra_max] : 2-dimensional array containing RA bounds (default radians) 
-        dec = [dec_min, dec_max] : 2-dimensional array containing Dec bounds (default radians) 
-        degrees = {True, False} : if True uses degrees, else radians
-        '''
-        Chi = self.Comoving_distance(z[1]) - self.Comoving_distance(z[0])
-        ang = sky.Solid_angle(ra,dec,degrees)
-        if degrees == True:
-            ang*=np.pi**2/180**2
-        return ang*1./3*Chi**3
-
     def Comoving_surface(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
         '''
         Compute the comoving surface at given redshift
@@ -225,9 +211,13 @@ class Universe:
         return ( (1+z)*self.Angular_distance(z) )**2 * ang
 
 
-    def Comoving_volume2(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
+    def Comoving_volume(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
         '''
         Compute the comoving volume given a redshift range and angles on the sky (similar as Comoving_volume)
+        z = [z_min, z_max] : 2-dimensional array containing redshift bounds
+        ra = [ra_min, ra_max] : 2-dimensional array containing RA bounds (default radians) 
+        dec = [dec_min, dec_max] : 2-dimensional array containing Dec bounds (default radians) 
+        degrees = {True, False} : if True uses degrees, else radians
         '''
         I = integrate.quad(lambda x: self.Comoving_surface(x,ra,dec,degrees)*misc.derivative(self.Comoving_distance,x,dx=1e-6),z[0],z[1])
         return I[0]
