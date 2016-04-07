@@ -198,19 +198,26 @@ class Universe:
             return self.Tranverse_comoving_distance(z)*(1+z)
 #--------------------------------
 #
-# Volumes
+# Surface
 #
 #--------------------------------
     def Comoving_surface(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
         '''
         Compute the comoving surface at given redshift
+        z : value at which to compute comoving surface
+        ra = [ra_min, ra_max] : 2-dimensional array containing RA bounds (default radians) 
+        dec = [dec_min, dec_max] : 2-dimensional array containing Dec bounds (default radians) 
+        degrees = {True, False} : if True uses degrees, else radians
         '''
         ang = sky.Solid_angle(ra,dec,degrees)
         if degrees == True:
             ang*=np.pi**2/180**2
         return ( (1+z)*self.Angular_distance(z) )**2 * ang
-
-
+#--------------------------------
+#
+# Volume
+#
+#--------------------------------
     def Comoving_volume(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
         '''
         Compute the comoving volume given a redshift range and angles on the sky (similar as Comoving_volume)
@@ -221,7 +228,6 @@ class Universe:
         '''
         I = integrate.quad(lambda x: self.Comoving_surface(x,ra,dec,degrees)*misc.derivative(self.Comoving_distance,x,dx=1e-6),z[0],z[1])
         return I[0]
-
 #--------------------------------
 #
 # Eisenstein & Hu
@@ -442,7 +448,7 @@ class Universe:
         D = 5./2*self.Omega_m_h2/self.h**2 * self.H(z)/(self.h*100) * I[0]
         return D/D0
                   
-    def Pk_th(self,k,z=0):
+    def Pk_EH(self,k,z=0):
         '''
         Compute the theoretical power spectrum using the Eisenstein & Hu transfer function 
         '''
