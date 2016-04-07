@@ -198,19 +198,26 @@ class Universe:
             return self.Tranverse_comoving_distance(z)*(1+z)
 #--------------------------------
 #
-# Volumes
+# Surface
 #
 #--------------------------------
     def Comoving_surface(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
         '''
         Compute the comoving surface at given redshift
+        z : value at which to compute comoving surface
+        ra = [ra_min, ra_max] : 2-dimensional array containing RA bounds (default radians) 
+        dec = [dec_min, dec_max] : 2-dimensional array containing Dec bounds (default radians) 
+        degrees = {True, False} : if True uses degrees, else radians
         '''
         ang = sky.Solid_angle(ra,dec,degrees)
         if degrees == True:
             ang*=np.pi**2/180**2
         return ( (1+z)*self.Angular_distance(z) )**2 * ang
-
-
+#--------------------------------
+#
+# Volume
+#
+#--------------------------------
     def Comoving_volume(self,z,ra=[0,2*np.pi],dec=[-np.pi/2.,np.pi/2.],degrees=False):
         '''
         Compute the comoving volume given a redshift range and angles on the sky (similar as Comoving_volume)
@@ -221,157 +228,6 @@ class Universe:
         '''
         I = integrate.quad(lambda x: self.Comoving_surface(x,ra,dec,degrees)*misc.derivative(self.Comoving_distance,x,dx=1e-6),z[0],z[1])
         return I[0]
-
-#--------------------------------
-#
-# Eisenstein & Hu
-#
-#--------------------------------
-    def s(self):
-        '''
-        Sound_horizon - Fitting formula from Eisenstein & Hu 1998 that says 'approximate the sound horizon to ~2% over the range Omega_b_h2 > 0.0125 and 0.025 < Omega_m_h2 < 0.5'.
-        Computed from the values of Omega_b_h2 and Omega_c_h2 of the Universe class.
-        '''
-        s = 44.5*np.log(9.83/self.Omega_m_h2) / np.sqrt(1+10*(self.Omega_b_h2)**(3./4))
-        return s
-    
-    def T(self,k):
-        '''
-        Eisenstein & Hu 1998
-        transfer function
-        '''
-        T = self.Omega_b_h2/self.Omega_m_h2*self.Tb(k) + (self.Omega_m_h2 - self.Omega_b_h2)/self.Omega_m_h2*self.Tc(k)
-        return T
-
-    def Tc(self,k):
-        '''
-        Eisenstein & Hu 1998
-        CDM transfer function
-        '''
-        Tc = self.f(k)*self.Ttild(k,1,self.betac()) + (1-self.f(k))*self.Ttild(k,self.alphac(),self.betac())
-        return Tc
-
-    def alphac(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        a1 = (46.9*self.Omega_m_h2)**0.670 * (1+(32.1*self.Omega_m_h2)**(-0.532))
-        a2 = (12.0*self.Omega_m_h2)**0.424 * (1+(45.0*self.Omega_m_h2)**(-0.582))
-        ac = a1**(-self.Omega_b_h2/self.Omega_m_h2)*a2**(-(self.Omega_b_h2/self.Omega_m_h2)**3)
-        return ac
-
-    def betac(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        b1 = 0.944*(1+(458*self.Omega_m_h2)**(-0.708))**(-1)
-        b2 = (0.395*self.Omega_m_h2)**(-0.0266)
-        ibc = 1 + b1*( ((self.Omega_m_h2 - self.Omega_b_h2)/self.Omega_m_h2)**b2 - 1)
-        return 1./ibc
-
-    def f(self,k):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        f = 1./(1 + (k*self.s()/5.4)**4)
-        return f
-
-    def Ttild(self,k,ac,bc):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        C = 14.2/ac + 386./(1 + 69.9*self.q(k)**1.08)
-        Ttild = np.log(np.e + 1.8*bc*self.q(k))/( np.log(np.e + 1.8*bc*self.q(k)) + C*self.q(k)**2)
-        return Ttild
-
-    def q(self,k):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        q = k/ (13.41*self.keq())
-        return q
-
-    def keq(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        keqp = (2*self.Omega_m_h2*100**2*self.zeq())**(1./2)
-        keq = 7.46*10**(-2)*self.Omega_m_h2*self.Theta27**(-2) 
-        return keq
-
-    def zeq(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        zeq = 2.50*10**4*self.Omega_m_h2 * self.Theta27**(-4)
-        return zeq 
-    
-    def Tb(self,k):
-        '''
-        Eisenstein & Hu 1998
-        Baryonic transfer function
-        '''
-        Tb = ( self.Ttild(k,1,1)/(1+(k*self.s()/5.2)**2) + self.alphab()/( 1 + (self.betab()/(k*self.s()))**3 ) * np.e**( -(k/self.ksilk())**1.4 ) )*np.sin(k*self.stild(k))/k/self.stild(k)
-        return Tb
-
-    def alphab(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        alphab = 2.07*self.keq()*self.s()*(1+self.R(self.zd()))**(-3./4)*self.G((1+self.zeq())/(1+self.zd()))
-        return alphab
-
-    def G(self,y):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        G = y*(-6*np.sqrt(1+y) + (2 + 3*y)*np.log( (np.sqrt(1+y) + 1) / (np.sqrt(1+y) - 1) ) )
-        return G
-
-    def betab(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        bb = 0.5 + self.Omega_b_h2/self.Omega_m_h2 + (3 - 2*self.Omega_b_h2/self.Omega_m_h2)*np.sqrt((17.2*self.Omega_m_h2)**2 + 1)
-        return bb
-
-    def zd(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        b1 = 0.313*(self.Omega_m_h2)**(-0.419)*(1 + 0.607*(self.Omega_m_h2)**0.674)
-        b2 = 0.238*(self.Omega_m_h2)**0.223
-        zd = 1291 * self.Omega_m_h2**0.251 / (1 + 0.659*self.Omega_m_h2**0.828) * (1 + b1*self.Omega_b_h2**b2)
-        return zd
-
-    def R(self,z):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        R = 31.5*self.Omega_b_h2*self.Theta27**(-4)*(z/10**3)**(-1)
-        return R
-
-    def ksilk(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        ksilk = 1.6 * (self.Omega_b_h2)**0.52 * (self.Omega_m_h2)**0.73 * (1 + (10.4*self.Omega_m_h2)**(-0.95))
-        return ksilk
-
-    def stild(self,k):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        stild = self.s() / (1 + (self.betanode()/k/self.s())**3)**(1./3)
-        return stild
-
-    def betanode(self):
-        '''
-        Eisenstein & Hu 1998
-        '''
-        betanode = 8.41*self.Omega_m_h2**0.435
-        return betanode
-
 #--------------------------------
 #
 # Pk
@@ -383,7 +239,7 @@ class Universe:
         sigma8 = np.sqrt( 1./ (2*np.pi**2) * integrate.simps(integrand,k))
         return sigma8
 
-    def Pk_camb(self,z=0):
+    def Pk_Camb(self,z=0):
         '''
         Compute Pk at redshift z (default z=0) using Camb with cosmological parameters of the class.
         '''
@@ -402,7 +258,7 @@ class Universe:
             print(line.replace('hubble         = 70','hubble         = '+'{0:.4f}'.format(params['h']*100)), end='')
         os.system('cd '+self.camb_path)
         os.system('mv /Users/tdelubac/Work/ELG/Macro/myuniverse/data/myuniverse_camb.ini '+os.path.join(self.camb_path,inifile))
-        print('### INFO ### Pk_camb : Invoking camb')
+        print('### INFO ### Pk_Camb : Invoking camb')
         os.system(os.path.join('./camb')+' '+os.path.join(self.camb_path,inifile))
         os.system('cd '+self.camb_path)
         camb_results = ascii.read(os.path.join(self.camb_path,outfile))
@@ -422,7 +278,7 @@ class Universe:
         Output:
         - [k,Pk]            : In Mpc^3
         '''
-        Pk0 = self.Pk_camb()
+        Pk0 = self.Pk_Camb()
         D = self.Linear_growth(z)
         if damping:
             Pk = [D**2 * iPk * np.e**(-(ik*sig_v)**2) for ik,iPk in zip(Pk0[0],Pk0[1])]
@@ -442,11 +298,16 @@ class Universe:
         D = 5./2*self.Omega_m_h2/self.h**2 * self.H(z)/(self.h*100) * I[0]
         return D/D0
                   
-    def Pk_th(self,k,z=0):
+    def Pk_EH(self,k,z=0):
         '''
         Compute the theoretical power spectrum using the Eisenstein & Hu transfer function 
+        Assume flatness through computation of delta_h (Eisenstein & Hu 1998 eq: A3)
+             k : array of values at which to compute P(k).
+        optional:
+             z : redshift at which to compute P(k). Default 0. 
         '''
-        Pk = k**self.n_s * self.T(k) * self.Linear_growth(z)
+        import eisenstein_hu as eh
+        Pk = eh.Pk(self,k,z)
         return Pk
 
     def Sampler(self):
