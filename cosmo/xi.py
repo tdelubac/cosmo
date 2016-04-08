@@ -141,5 +141,21 @@ def w_theta(theta,r,Xi,z,n,b,f,universe):
     return w
 
                                       
+def plot_Xi2D(r,mu,Xi,savefig=''):
+    '''
+    2D polar plot of the correlation function
+    '''
+    from matplotlib import pyplot as p
+
+    X,Y = np.meshgrid(np.pi/2. -np.arccos(mu),r)
+    fig, ax = p.subplots(subplot_kw=dict(projection='polar'))
+    ax.pcolormesh(X, Y,Y*Y*np.asarray(Xi))
+    ax.pcolormesh(-X, Y,Y*Y*np.asarray(Xi))
+    ax.pcolormesh(-X+np.pi, Y,Y*Y*np.asarray(Xi))
+    ax.pcolormesh(X+np.pi, Y,Y*Y*np.asarray(Xi))
     
-    
+    if savefig=='':
+        p.show()
+    else:
+        p.savefig(savefig)
+    return
