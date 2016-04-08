@@ -39,14 +39,25 @@ def Pk2Xi(k,Pk,rmin=0,rmax=200,nbins=200,mode_coupling=False):
         
     return r,Xi
 
-def Xi_RSD(r,Xi,b,f,mu):
+def Xi_RSD(r,Xi,b,f,mumin=0,mumax=1,nbinsmu=200):
     '''
     Compute the Redshift Space Distortion correlation function using Hamilton 1992.
 
     Inputs:
+         r  : 1D array containing distance separations at which input linear correlation function is computed
+         Xi : 1D array containing the linear correlation function
+         b  : bias parameter
+         f  : growth rate parameter (Omega_m**0.6 for General Relativity)
+
+    Optional:
+         mumin   : minimum value at which to compute mu
+         mumax   : maximum value at which to compute mu
+         nbinsmu : number of bins in mu direction
 
     Outputs:
-
+         r   : 1D array containing r values
+         mu  : 1D array containing mu values
+         Xis : 2D array of redshift space distorded correlation function
     '''
     import legendre as L
     
@@ -54,8 +65,10 @@ def Xi_RSD(r,Xi,b,f,mu):
     xi2 = Xi2(r,Xi,b,f) 
     xi4 = Xi4(r,Xi,b,f) 
 
-    Xis = [xi0[i] * L.p0(mu) + xi2[i] * L.p2(mu) + xi4[i] * L.p4(mu) for i in np.arange(len(r))] 
-    return r,Xis
+    mu = np.linspace(mumin,mumax,nbinsmu)
+
+    Xis = [ [xi0[i] * L.p0(imu) + xi2[i] * L.p2(imu) + xi4[i] * L.p4(imu) for imu in mu] for i in np.arange(len(r))]
+    return r,mu,Xis
 
 def Xi0(Xi,b,f):
     '''
@@ -103,4 +116,30 @@ def _Xibarbar(r,Xi,rmax):
     Int = [Xi[i] * r[i]**4 * (r[i+1] - r[i]) for i in np.arange(len(r[:-1])) if r[i] < rmax]
     Xibarbar = 5 * 1./rmax**5 * np.sum(Int)
     return Xibarbar
+    
+def w_theta(theta,r,Xi,z,n,b,f,universe):
+    '''
+    Compute the angular correlation given the linear correlation function and the redshift distribution of the measurements. 
+
+    Inputs:
+         theta : angle at which to compute the angular correlation
+         r     : 1D array 
+
+    Optional:
+
+    Outputs:
+    '''
+    from scipy.interpolate import interp1d
+    
+    
+
+
+    Int = lambda z1 : Nz(z1) * np.sum([ n[i] * (z[i+1] - z[i]) * interp1d(*Xi_RSD(r,Xi,b,f, universe.Comoving_distance([z1,z[i]]) / np.sqrt(universe.Comoving_distance([z1,z[i]])**2 + (universe.Comoving_distance(z1) * theta)**2 )))(np.sqrt(universe.Comoving_distance([z1,z[i]])**2 + (universe.Comoving_distance(z1) * theta)**2 )) if np.sqrt(universe.Comoving_distance([z1,z[i]])**2 + (universe.Comoving_distance(z1) * theta)**2 ) < r[-1] else 0 for i in np.arange(len(z[:-1]))] )
+    
+    w = np.sum([Int(z[i]) * (z[i+1]-z[i]) for i in np.arange(len(z[:-1]))])
+
+    return w
+
+                                      
+    
     

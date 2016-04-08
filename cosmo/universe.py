@@ -157,10 +157,14 @@ class Universe:
                 return 0
             z_0,z_1 = 0,z
         else:
-            z_0,z_1 = z[0],z[1]
+            z_0 = min(z)
+            z_1 = max(z)
+        if z_0 == 0:
+            z_0 = 0.001
         I = integrate.quad(lambda x: 1./self.H(x),z_0,z_1)
-        if I[1]/I[0]>0.01:
-            print('### WARNING ### Comoving_distance : estimate has error of',I[1]/I[0]*100,'%' )
+        if I[0]>0:
+            if I[1]/I[0]>0.01:
+                print('### WARNING ### Comoving_distance : estimate has error of',I[1]/I[0]*100,'%' )
         Chi = I[0]*self.c
         return Chi
 
@@ -589,13 +593,15 @@ class Universe:
         p.show()
         return
 
-    def Plot_angular_scale(self, l, zmax, zmin=0, logscale=True):
+    def Plot_angular_scale(self, l, zmax, zmin=0.01, logscale=True):
         '''
         Plot the angular scale as a function of redshift
         '''    
         if zmax<=zmin:
             print('### ERRROR ### Plot_angular scale : bad range')
             return
+        if zmin == 0:
+            zmin = 0.01
         step = (zmax-zmin)/float(1000)
         z = np.arange(zmin,zmax,step)
         D_A = []
