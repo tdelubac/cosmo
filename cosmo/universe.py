@@ -52,7 +52,7 @@ class Universe:
         '''
         Return dictionary with parameters value at redshift z
         '''
-        h = self.H(z)/100.
+        h = self.h
         Omh2 = self.Omega_m_h2 * (1+z)**3
         Obh2 = self.Omega_b_h2 * (1+z)**3
         Or = self.Omega_r * (1+z)**4 * self.h**2 / h**2
@@ -94,9 +94,9 @@ class Universe:
 
     def Get_distance_unit(self):
         '''
-        Return distance unit (Mpc)
+        Return distance unit (Mpc/h)
         '''
-        return 'Mpc'
+        return 'Mpc/h'
 
     def Set_exact_disctances(self,bool):
         '''
@@ -146,7 +146,7 @@ class Universe:
         Ot = self.Omega_m_h2/self.h**2 + self.Omega_l + self.Omega_r
         Ok = 1 - Ot
         hubble = 100*np.sqrt(self.Omega_r*(1+z)**4 + self.Omega_m_h2/self.h**2*(1+z)**3 + Ok*(1+z)**2 + self.Omega_l)
-        return self.h*hubble
+        return hubble
 
     def Comoving_distance(self,z):
         '''
@@ -159,8 +159,8 @@ class Universe:
         else:
             z_0 = min(z)
             z_1 = max(z)
-        if z_0 == 0:
-            z_0 = 0.001
+        if z_0 == z_1:
+            return 0
         I = integrate.quad(lambda x: 1./self.H(x),z_0,z_1)
         if I[0]>0:
             if I[1]/I[0]>0.01:
@@ -173,7 +173,7 @@ class Universe:
         Compute the tranverse comoving distance (chi, sin(chi) or sinh(chi) depending on Omega_k)
         '''
         Ok = self.Omega_k()
-        d_H = self.c/(100*self.h)
+        d_H = self.c/100
         if (Ok == 0) | ( (np.abs(Ok)<self.exact_distances_threshold) & (self.exact_distances==False) ):
             return self.Comoving_distance(z)
         elif Ok>0:
@@ -280,7 +280,7 @@ class Universe:
         - sig_v (=4.48)     : Value of the streaming scale. Default is 4.47 Mpc = 3 Mpc/h for h = 0.67 which is the value of Anderson et al. 2014
 
         Output:
-        - [k,Pk]            : In Mpc^3
+        - [k,Pk]            : In (Mpc/h)^3
         '''
         Pk0 = self.Pk_Camb()
         D = self.Linear_growth(z)
@@ -294,12 +294,12 @@ class Universe:
         '''
         Compute the linear growth D(z) (default z=0) normalized to D(z=0) for Lambda cosmologies following Heath 1977 (see Percival 2005 eq. 15)
         '''
-        I0 = integrate.quad(lambda x: (1+x)/(self.H(x)/(self.h*100))**3,0,3000)
-        I = integrate.quad(lambda x: (1+x)/(self.H(x)/(self.h*100))**3,z,3000)
+        I0 = integrate.quad(lambda x: (1+x)/(self.H(x)/(100))**3,0,3000)
+        I = integrate.quad(lambda x: (1+x)/(self.H(x)/(100))**3,z,3000)
         if I[1]/I[0]>0.01:
             print('### WARNING ### Linear_growth : estimate has error of',I[1]/I[0]*100,'%' )
         D0 = 5./2*self.Omega_m_h2/self.h**2 * I0[0]
-        D = 5./2*self.Omega_m_h2/self.h**2 * self.H(z)/(self.h*100) * I[0]
+        D = 5./2*self.Omega_m_h2/self.h**2 * self.H(z)/(100) * I[0]
         return D/D0
                   
     def Pk_EH(self,k,z=0):
@@ -311,7 +311,8 @@ class Universe:
              z : redshift at which to compute P(k). Default 0. 
         '''
         import eisenstein_hu as eh
-        Pk = eh.Pk(self,k,z)
+        k_mpc = k*self.h
+        Pk = eh.Pk(self,k_mpc,z)
         return Pk
 
     def Sampler(self):
@@ -556,9 +557,9 @@ class Universe:
             p.plot(z,H)
         p.xlabel('redshift')
         if norm:
-            p.ylabel('H(z)/(1+z) (km/s/Mpc)')
+            p.ylabel('H(z)/(1+z) (km/s/(Mpc/h)')
         else:
-            p.ylabel('H(z) (km/s/Mpc)')
+            p.ylabel('H(z) (km/s/(Mpc/h))')
         p.show()
         return
 
@@ -589,7 +590,7 @@ class Universe:
         if logscale:
             p.yscale('log')
         p.xlabel('redshift')
-        p.ylabel('distance (Mpc)')
+        p.ylabel('distance (Mpc/h)')
         p.show()
         return
 
