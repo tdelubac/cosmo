@@ -1,6 +1,6 @@
 #--------------------------------
 #
-# Eisenstein & Hu
+# Eisenstein & Hu (in Mpc)
 #
 #--------------------------------
 import numpy as np
