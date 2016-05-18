@@ -10,6 +10,7 @@ import random
 import mcint
 import itertools
 from ..sky import sky 
+from ..fourier import fourier
 from scipy import integrate
 from scipy import misc
 from scipy import interpolate
@@ -237,12 +238,6 @@ class Universe:
 # Pk
 #
 #--------------------------------
-    def Sigma8(self,k,Pk):
-        w = 3 / (k*8)**3 * (np.sin(8*k) - 8*k*np.cos(8*k))
-        integrand = Pk * w**2 * k**2
-        sigma8 = np.sqrt( 1./ (2*np.pi**2) * integrate.simps(integrand,k))
-        return sigma8
-
     def Pk_Camb(self,z=0):
         '''
         Compute Pk at redshift z (default z=0) using Camb with cosmological parameters of the class.
@@ -315,80 +310,6 @@ class Universe:
         Pk = eh.Pk(self,k_mpc,z)
         return Pk
 
-    def Sampler(self):
-        '''
-        Internal - Sampler for Cosmic_variance_MC mcint. Not to be called by user.
-        '''
-        while True:
-            k1 = random.uniform(0.,np.sqrt((self.kmax**2)/3.))
-            k2 = random.uniform(0.,np.sqrt((self.kmax**2)/3.))
-            k3 = random.uniform(0.,np.sqrt((self.kmax**2)/3.))
-            yield (k1,k2,k3)
-
-    def Cosmic_variance_MC2(self,k,Pk,z,width,height,degrees=True,nsteps=50):
-        '''
-        Compute the cosmic variance using a Monte Carlo approch
-        '''
-        zmean = (z[1]+z[0])/2.
-
-        Pk_int = interpolate.interp1d(k,Pk*self.Linear_growth(zmean))
-
-        norm = lambda k1,k2,k3: np.sqrt(k1**2+k2**2+k3**2)
-
-        x1 = (1+zmean)*self.Angular_distance(zmean)*width
-        x2 = (1+zmean)*self.Angular_distance(zmean)*height
-        x3 = self.Comoving_distance(z[1]) - self.Comoving_distance(z[0]) 
-
-        #DEBUG
-        if debug==True:
-            x1 = 8
-            x2 = 8
-            x3 = 8
-            kmax1 = 2*np.pi/(x1)
-            kmax2 = 2*np.pi/(x2)
-            kmax3 = 2*np.pi/(x3)
-        else:
-            kmax1 = 2*np.pi/(x1/2.)
-            kmax2 = 2*np.pi/(x2/2.)
-            kmax3 = 2*np.pi/(x3/2.)
-        
-#        kmax = norm(2*np.pi/(3*x1),2*np.pi/(3*x2),2*np.pi/(3*x3))
-        '''
-        w1 = lambda k: np.sin(np.pi*x1*k) / (np.pi*k) 
-        w2 = lambda k: np.sin(np.pi*x2*k) / (np.pi*k) 
-        w3 = lambda k: np.sin(np.pi*x3*k) / (np.pi*k) 
-        '''
-        w1 = lambda k1: np.sin(x1*k1/2.) / (k1*x1/2.) 
-        w2 = lambda k2: np.sin(x2*k2/2.) / (k2*x2/2.) 
-        w3 = lambda k3: np.sin(x3*k3/2.) / (k3*x3/2.) 
-
-        #w = lambda k1,k2,k3: w1(k1) * w2(k2) * w3(k3)
-
-#        w = lambda k1,k2,k3: np.abs(w1(k1)) * np.abs(w2(k2)) * np.abs(w3(k3))
-#        Integrand = lambda k1,k2,k3: Pk_int( norm(k1,k2,k3) ) * w(k1,k2,k3)**2
-
-        kmin = k[0]
-#        kmax_1d = np.sqrt((kmax**2)/3.)
-
-
-        ### 1D Integral ###
-        '''
-        w = lambda k1: 3 / (k1*x1)**3 * (np.sin(x1*k1) - x1*k1*np.cos(x1*k1))
-        Integrand = lambda k1: k1**2 * Pk_int(k1) * w(k1)**2
-        I = self.Integral_trapez(Integrand,kmin,kmax1,nsteps=nsteps,dim=1)
-        I*= 1./ (2*np.pi**2)
-        '''
-        '''
-        Test = lambda k1,k2,k3: 1 if (k1<1) & (k2<1) & (k3<1) else 0
-        I = self.Integral_trapez(Test,0,3,0,3,0,3,nsteps=nsteps,dim=3)  
-        '''
-        ### 3D Integral ###
-        w = lambda k1: 3 / (k1*x1)**3 * (np.sin(x1*k1) - x1*k1*np.cos(x1*k1))
-        Integrand = lambda k1,k2,k3: Pk_int(norm(k1,k2,k3)) * w(norm(k1,k2,k3))**2
-        I = self.Integral_trapez(Integrand,kmin,kmax1,kmin,kmax2,kmin,kmax3,nsteps=nsteps,dim=3)
-        I*= 1./ (2*np.pi)**3
-        return np.sqrt(I)
-    
     def Pk_Jeff(self,k):
         n = 1
         gamma = 0.21
@@ -403,77 +324,68 @@ class Universe:
         delsq=delsq*(sigma8)**2/sigma8squn   
         pofk=2*np.pi**2*delsq
         return pofk
-    
-    def Cosmic_variance_MC3(self,k,Pk,z,width,height,degrees=True,nsteps=50,window='tophat',debug=False):
+#--------------------------------
+#
+# Cosmic variance
+#
+#--------------------------------
+    def Sigma8(self,k,Pk):
         '''
-        Compute the cosmic variance using scipy Simpson integration
+        Compute sigma8 with the simplest formula
         '''
-        if degrees==True:
-            width*=np.pi/180.
-            height*=np.pi/180.
+        w = fourier.FT_sphere(8,k)
+        integrand = Pk * w**2 * k**2
+        sigma8 = np.sqrt( 1./ (2*np.pi**2) * integrate.simps(integrand,k))
+        return sigma8
 
-        zmean = (z[1]+z[0])/2.
-        Pk_int = interpolate.interp1d(k,Pk*self.Linear_growth(zmean))
-#        Pk_int = lambda k: self.Pk_Jeff(k)*self.Linear_growth(zmean)
+    def cv_sphere(self,k,Pk,R,nsteps=50):
+        '''
+        Compute the cosmic variance in a sphere of radius R using 3D integral
+        '''
+        kmin = np.min(k)
+        #kmax = 2*np.pi/R
+        kmax = np.max(k)
+
+        Pk_int = interpolate.interp1d(k,Pk)
+        w = lambda k: fourier.FT_sphere(R,k)
         norm = lambda k1,k2,k3: np.sqrt(k1**2+k2**2+k3**2)
-        x1 = (1+zmean)*self.Angular_distance(zmean)*width
-        x2 = (1+zmean)*self.Angular_distance(zmean)*height
-        x3 = self.Comoving_distance(z[1]) - self.Comoving_distance(z[0]) 
 
-        #DEBUG
-        if debug==True:
-            x1 = 8
-            x2 = 8
-            x3 = 8
-            kmax1 = 2*np.pi/(x1)
-            kmax2 = 2*np.pi/(x2)
-            kmax3 = 2*np.pi/(x3)
-        else:
-            '''
-            kmax1 = 2*np.pi/(x1/2.)
-            kmax2 = 2*np.pi/(x2/2.)
-            kmax3 = 2*np.pi/(x3/2.)
-            '''
-
-            kmax1 = 2*np.pi/(x1/20.)
-            kmax2 = 2*np.pi/(x2/20.)
-            kmax3 = 2*np.pi/(x3/20.)
-
-        w1 = lambda k1: np.sin(x1*k1/2.) / (k1*x1/2.) 
-        w2 = lambda k2: np.sin(x2*k2/2.) / (k2*x2/2.) 
-        w3 = lambda k3: np.sin(x3*k3/2.) / (k3*x3/2.) 
-        '''
-        w1 = lambda k1: np.sin(np.pi*x1*k1) / (np.pi*k1*x1) 
-        w2 = lambda k2: np.sin(np.pi*x2*k2) / (np.pi*k2*x2) 
-        w3 = lambda k3: np.sin(np.pi*x3*k3) / (np.pi*k3*x3) 
-        '''
-        kmin = k[0]
-
-        k3 = np.linspace(kmin,kmax3,nsteps)
-        k2 = np.linspace(kmin,kmax2,nsteps)
-        k1 = np.linspace(kmin,kmax1,nsteps)
-
+        k3 = np.linspace(kmin,kmax,nsteps)
+        k2 = np.linspace(kmin,kmax,nsteps)
+        k1 = np.linspace(kmin,kmax,nsteps)
         ### 3D Integral ###
-        if window=='sphere':
-            w = lambda k1,k2,k3: 3 / (norm(k1,k2,k3)*x1)**3 * (np.sin(x1*norm(k1,k2,k3)) - x1*norm(k1,k2,k3)*np.cos(x1*norm(k1,k2,k3)))
-#        w = lambda k1,k2,k3: w1(k1) * w2(k2) * w3(k3) if 1./norm(k1,k2,k3)< 8 else 0
-        elif window=='tophat':
-            w = lambda k1,k2,k3: w1(k1) * w2(k2) * w3(k3)
-        else:
-            print("### Error ### Cosmic_variance_MC3: wrong window choices, possibilities are tophat (defaukt) or sphere")
-        Integrand1 = lambda k3,k2,k1: Pk_int(norm(k1,k2,k3)) * w(k1,k2,k3)**2        
+        Integrand1 = lambda k3,k2,k1: Pk_int(norm(k1,k2,k3)) * w(k1)**2 * w(k2)**2 * w(k3)**2 if ((norm(k1,k2,k3) < kmax) & (norm(k1,k2,k3) > kmin)) else 0        
+        I3 = lambda k1,k2: integrate.simps(self.__Get_integrand(k3,Integrand1,k1,k2),k3)
+        I2 = lambda k1: integrate.simps(self.__Get_integrand(k2,I3,k1),k2)
+        I = integrate.simps(self.__Get_integrand(k1,I2),k1)*8 # *8 to account for negative wavenumber
+        return np.sqrt(I/(8*np.pi**3))
 
-        I3 = lambda k1,k2: integrate.simps(self.Get_integrand(k3,Integrand1,k1,k2),k3)
-        I2 = lambda k1: integrate.simps(self.Get_integrand(k2,I3,k1),k2)
-        I = integrate.simps(self.Get_integrand(k1,I2),k1)
-#        I3 = lambda k2,k1: integrate.quad(Integrand,kmin,kmax3,args=(k2,k1))[0]
-#        I2 = lambda k1: integrate.quad(I3,kmin,kmax2,args=(k1))[0]
-#        I = integrate.quad(I2,kmin,kmax1)[0]
- 
-        I*= 1./ (np.pi)**3
-        return np.sqrt(I)
+    def cv_box(self,k,Pk,x1,x2,x3,nsteps=50):
+        '''
+        Compute the cosmic variance in a box of dimensions (x1,x2,x3)
+        '''
+        kmin = np.min(k)
+        #kmax = 2*np.pi/R
+        kmax = np.max(k)
 
-    def Get_integrand(self,x,func,y=False,z=False):
+        Pk_int = interpolate.interp1d(k,Pk)
+        w1 = lambda k: fourier.FT_tophat(x1,k)
+        w2 = lambda k: fourier.FT_tophat(x2,k)
+        w3 = lambda k: fourier.FT_tophat(x3,k)
+        norm = lambda k1,k2,k3: np.sqrt(k1**2+k2**2+k3**2)
+
+        k1 = np.linspace(kmin,kmax,nsteps)
+        k2 = np.linspace(kmin,kmax,nsteps)
+        k3 = np.linspace(kmin,kmax,nsteps)
+        
+        ### 3D Integral ###
+        Integrand1 = lambda k3,k2,k1: Pk_int(norm(k1,k2,k3)) * w1(k1)**2 * w2(k2)**2 * w3(k3)**2 if ((norm(k1,k2,k3) < kmax) & (norm(k1,k2,k3) > kmin)) else 0        
+        I3 = lambda k1,k2: integrate.simps(self.__Get_integrand(k3,Integrand1,k1,k2),k3)
+        I2 = lambda k1: integrate.simps(self.__Get_integrand(k2,I3,k1),k2)
+        I = integrate.simps(self.__Get_integrand(k1,I2),k1)*8 # *8 to account for negative wavenumber
+        return np.sqrt(I/(8*np.pi**3))
+    
+    def __Get_integrand(self,x,func,y=False,z=False):
         if z==False:
             if y==False:
                 I = [func(ix) for ix in x]
@@ -482,57 +394,6 @@ class Universe:
         else:
             I = [func(ix,y,z) for ix in x]
         return I
-
-    def Integral_trapez(self,func,x_min,x_max,y_min=0,y_max=0,z_min=0,z_max=0,nsteps=100,dim=3):
-        '''
-        Compute the 1d, 2d or 3d integral of func using trapezoidal integration
-
-        Inputs:
-        - func         : a function or method
-        - x_min (float): inferior limit on x
-        - x_max (float): superior limit on x
-        - y_min (float): inferior limit on y
-        - y_max (float): inferior limit on y 
-        - z_min (float): inferior limit on z
-        - z_max (float): inferior limit on z
-        - nsteps (int) : number of steps
-        - dim    (int) : dimension of the integral
-
-        Outputs:
-        - Value of the integral
-        '''
-        dx = (x_max - x_min)/float(nsteps)
-        dy = (y_max - y_min)/float(nsteps)
-        dz = (z_max - z_min)/float(nsteps)
-
-        ind = np.arange(nsteps)
-        x = ind*dx + x_min
-        y = ind*dy + y_min
-        z = ind*dz + z_min
-        
-        
-        if (dim==3):
-#       I = dx*dy*dz/8. * np.array([ func(x[i],y[j],z[k]) + func(x[i],y[j],z[k+1]) + func(x[i],y[j+1],z[k]) + func(x[i],y[j+1],z[k+1]) + func(x[i+1],y[j],z[k]) + func(x[i+1],y[j],z[k+1]) + func(x[i+1],y[j+1],z[k]) + func(x[i+1],y[j+1],z[k+1]) for i,j,k in itertools.product(ind[:-1],ind[:-1],ind[:-1])])
-            iter2 = itertools.product(ind[1:-1],ind[1:-1])
-            iter3 = itertools.product(ind[1:-1],ind[1:-1],ind[1:-1])
-            I1 = func(x[0],y[0],z[0]) + func(x[0],y[0],z[nsteps-1]) + func(x[0],y[nsteps-1],z[0]) + func(x[0],y[nsteps-1],z[nsteps-1]) + func(x[nsteps-1],y[0],z[0]) + func(x[nsteps-1],y[0],z[nsteps-1]) + func(x[nsteps-1],y[nsteps-1],z[0]) + func(x[nsteps-1],y[nsteps-1],z[nsteps-1])
-            I2_z = np.sum([func(x[0],y[0],z[i]) + func(x[0],y[nsteps-1],z[i]) + func(x[nsteps-1],y[0],z[i]) + func(x[nsteps-1],y[nsteps-1],z[i]) for i in ind[1:-1]])
-            I2_y = np.sum([func(x[0],y[i],z[0]) + func(x[0],y[i],z[nsteps-1]) + func(x[nsteps-1],y[i],z[0]) + func(x[nsteps-1],y[i],z[nsteps-1]) for i in ind[1:-1]])
-            I2_x = np.sum([func(x[i],y[0],z[0]) + func(x[i],y[0],z[nsteps-1]) + func(x[i],y[nsteps-1],z[0]) + func(x[i],y[nsteps-1],z[nsteps-1]) for i in ind[1:-1]])
-            I4_yz = np.sum([func(x[0],y[i],z[j]) +func(x[nsteps-1],y[i],z[j]) for i,j in iter2])
-            I4_xz = np.sum([func(x[i],y[0],z[j]) +func(x[i],y[nsteps-1],z[j]) for i,j in iter2])
-            I4_xy = np.sum([func(x[i],y[j],z[0]) +func(x[i],y[j],z[nsteps-1]) for i,j in iter2])
-            I8 = np.sum([func(x[i],y[j],z[k]) for i,j,k in iter3])
-            I = dx*dy*dz/8. * (I1 + 2*(I2_x+I2_y+I2_z) + 4*(I4_xy+I4_xz+I4_yz) + 8*I8)
-        elif (dim==2):
-            I = dx*dy/4. * np.array([func(x[i],y[j]) + func(x[i],y[j+1]) + func(x[i+1],y[j]) + func(x[i+1],y[j+1]) for i,j in itertools.product(ind[:-1],ind[:-1])])
-        elif (dim==1):
-            I = dx/2. * np.array([func(x[i]) + func(x[i+1]) for i in ind[:-1]])
-        else:
-            print('### ERROR ### Integral_trapez: wrong dimension, please use dim = 1,2 or 3')
-            return
-        return np.sum(I)
-
 
 #--------------------------------
 #
@@ -623,151 +484,3 @@ class Universe:
         if show:
             p.show()
         return
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### OBSOLETE ###
-    def Box(self,height,width,z,box_size=10,nbins=200,degrees=True):
-        '''
-        Create a 3d array (a box) that is *box_size* times bigger than the volume that has ones inside the volume and 0 outside
-        
-        Inputs:
-        - height (float)   : angle  
-        - width (float)    : angle  
-        - z (float array len 2)  : redshift limits
-        - box_size (int)   : number of times the box is bigger than the volume of interest in any direction
-        - nbins (int)      : number of bins in the smallest direction
-
-        Returns:
-        - step_size (float) : the comoving distance between to pixels  
-        - box (float array of dim3) : the actual box
-        '''
-        if degrees:
-            height*=np.pi/180
-            width*=np.pi/180
-        # define x,y and z length of the volume
-        mean_z = (z[1]+z[0])/2
-        xv = (1+mean_z)*self.Angular_distance(mean_z)*height
-        yv = (1+mean_z)*self.Angular_distance(mean_z)*width
-        zv = self.Comoving_distance(z[1]) - self.Comoving_distance(z[0])
-        # define x,y and z length of the box
-        x = xv*box_size
-        y = yv*box_size
-        z = zv*box_size
-        # Compute number of bins per axis
-        step_size = min([x,y,z])/nbins
-        if step_size < 0.5:
-            step_size = 0.5
-        box_x = int(x/step_size)
-        box_y = int(y/step_size)
-        box_z = int(z/step_size)
-        # Create box and set center
-        box = np.zeros((box_z,box_x,box_y))
-        x_center = box_x/2
-        y_center = box_y/2
-        # Compute max distance to the center in bins
-        xv_bins = xv/step_size/2.
-        yv_bins = yv/step_size/2.
-        # Fill ones
-        for iz in np.arange(box_z):
-            if iz*step_size > zv:
-                continue
-            for ix in np.arange(box_x):
-                if np.abs(ix-x_center) > xv_bins:
-                    continue
-                for iy in np.arange(box_y):
-                    if np.abs(iy-y_center) > yv_bins:
-                        continue
-                    box[iz,ix,iy] = 1
-        return step_size, box
-
-    def Box_fft(self,box,step_size):
-        '''
-        Do the FFT of a box
-        '''
-        ftbox = fft.fftn(box)
-        wave1 = fft.fftfreq(box.shape[0],d=step_size)
-        wave2 = fft.fftfreq(box.shape[1],d=step_size)
-        wave3 = fft.fftfreq(box.shape[2],d=step_size)
-        # Keep only real part
-        wave1 = wave1[:box.shape[0]/2]
-        wave2 = wave2[:box.shape[1]/2]
-        wave3 = wave3[:box.shape[2]/2]
-        ftbox = ftbox[:box.shape[0]/2,:box.shape[1]/2,:box.shape[2]/2]
-        self.window_func = np.abs(ftbox)
-        self.window_wave = [wave1,wave2,wave3]
-        return [wave1,wave2,wave3],np.abs(ftbox)
-
-    def Cosmic_variance_MC(self,Pk,z,width,height,degrees=True,nmc=1e5):
-        '''
-        Compute the cosmic variance using a Monte Carlo approch
-        '''
-        self.Pk = Pk
-        print('Computing window function')
-        scale,box = self.Box(height,width,z,degrees=degrees)
-        print('Computing fft of window function')
-        wave,fbox = self.Box_fft(box,scale)
-        self.window_func = fbox
-        self.window_wave = wave
-        print('Computing integral of Pk')
-        domaine_size = wave[0][-1]*wave[1][-1]*wave[2][-1]
-        random.seed(1)
-        results, error = mcint.integrate(self.Integrand_MC, self.Sampler(), measure=domaine_size, n=nmc)
-        results/=8*np.pi**3
-        print('Done')
-        return (results,error)
-
-
-
-    def Integrand(self,k1,k2,k3,Pk,wave,fbox):
-        '''
-        Integrand for cosmic variance computation, not to be called directly
-        '''
-        norm_k = np.sqrt(k1**2+k2**2+k3**2)
-        Int = interpolate.interp1d(Pk[0], Pk[1])(norm_k) 
-
-        Int*=(interpolate.interpn(wave,fbox,[k1,k2,k3])[0])**2
-        return Int
-
-    def Cosmic_variance(self,Pk,z,width,height,degrees=True):
-        '''
-        Compute the cosmic variance
-        '''
-        print('Computing window function')
-        scale,box = self.Box(height,width,z,degrees=degrees)
-        print('Computing fft of window function')
-        wave,fbox = self.Box_fft(box,scale)
-        print('Computing integral of Pk')
-        CV = 1./8/np.pi**3*integrate.tplquad(self.Integrand,wave[0][0],wave[0][-1],lambda x:wave[1][0],lambda x:wave[1][-1],lambda x,y:wave[2][0],lambda x,y:wave[2][-1],args=(Pk,wave,fbox))
-        print('Done')
-        return CV
-
-    def Integrand_MC(self,k):
-        '''
-        Internal - Integrand for cosmic variance computation, not to be called by user.
-        '''
-        k1 = k[0]
-        k2 = k[1]
-        k3 = k[2]
-        norm_k = np.sqrt(k1**2+k2**2+k3**2)
-        Int = interpolate.interp1d(self.Pk[0], self.Pk[1])(norm_k) 
-        Int*=(interpolate.interpn(self.window_wave,self.window_func,[k1,k2,k3])[0])**2
-        return Int
-
