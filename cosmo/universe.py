@@ -326,7 +326,7 @@ class Universe:
         return pofk
 #--------------------------------
 #
-# Pk
+# Cosmic variance
 #
 #--------------------------------
     def Sigma8(self,k,Pk):
@@ -355,9 +355,9 @@ class Universe:
         k1 = np.linspace(kmin,kmax,nsteps)
         ### 3D Integral ###
         Integrand1 = lambda k3,k2,k1: Pk_int(norm(k1,k2,k3)) * w(k1)**2 * w(k2)**2 * w(k3)**2 if ((norm(k1,k2,k3) < kmax) & (norm(k1,k2,k3) > kmin)) else 0        
-        I3 = lambda k1,k2: integrate.simps(self.Get_integrand(k3,Integrand1,k1,k2),k3)
-        I2 = lambda k1: integrate.simps(self.Get_integrand(k2,I3,k1),k2)
-        I = integrate.simps(self.Get_integrand(k1,I2),k1)*8 # *8 to account for negative wavenumber
+        I3 = lambda k1,k2: integrate.simps(self.__Get_integrand(k3,Integrand1,k1,k2),k3)
+        I2 = lambda k1: integrate.simps(self.__Get_integrand(k2,I3,k1),k2)
+        I = integrate.simps(self.__Get_integrand(k1,I2),k1)*8 # *8 to account for negative wavenumber
         return np.sqrt(I/(8*np.pi**3))
 
     def cv_box(self,k,Pk,x1,x2,x3,nsteps=50):
@@ -380,80 +380,12 @@ class Universe:
         
         ### 3D Integral ###
         Integrand1 = lambda k3,k2,k1: Pk_int(norm(k1,k2,k3)) * w1(k1)**2 * w2(k2)**2 * w3(k3)**2 if ((norm(k1,k2,k3) < kmax) & (norm(k1,k2,k3) > kmin)) else 0        
-        I3 = lambda k1,k2: integrate.simps(self.Get_integrand(k3,Integrand1,k1,k2),k3)
-        I2 = lambda k1: integrate.simps(self.Get_integrand(k2,I3,k1),k2)
-        I = integrate.simps(self.Get_integrand(k1,I2),k1)*8 # *8 to account for negative wavenumber
+        I3 = lambda k1,k2: integrate.simps(self.__Get_integrand(k3,Integrand1,k1,k2),k3)
+        I2 = lambda k1: integrate.simps(self.__Get_integrand(k2,I3,k1),k2)
+        I = integrate.simps(self.__Get_integrand(k1,I2),k1)*8 # *8 to account for negative wavenumber
         return np.sqrt(I/(8*np.pi**3))
     
-    def Cosmic_variance_MC3(self,k,Pk,z,width,height,degrees=True,nsteps=50,window='tophat',debug=False):
-        '''
-        Compute the cosmic variance using scipy Simpson integration
-        '''
-        if degrees==True:
-            width*=np.pi/180.
-            height*=np.pi/180.
-
-        zmean = (z[1]+z[0])/2.
-        Pk_int = interpolate.interp1d(k,Pk*self.Linear_growth(zmean))
-        norm = lambda k1,k2,k3: np.sqrt(k1**2+k2**2+k3**2)
-        x1 = (1+zmean)*self.Angular_distance(zmean)*width
-        x2 = (1+zmean)*self.Angular_distance(zmean)*height
-        x3 = self.Comoving_distance(z[1]) - self.Comoving_distance(z[0]) 
-
-        #DEBUG
-        if debug==True:
-            x1 = 8
-            x2 = 8
-            x3 = 8
-            kmax1 = 2*np.pi/(x1)
-            kmax2 = 2*np.pi/(x2)
-            kmax3 = 2*np.pi/(x3)
-        else:
-            '''
-            kmax1 = 2*np.pi/(x1/2.)
-            kmax2 = 2*np.pi/(x2/2.)
-            kmax3 = 2*np.pi/(x3/2.)
-            '''
-
-            kmax1 = 2*np.pi/(x1/20.)
-            kmax2 = 2*np.pi/(x2/20.)
-            kmax3 = 2*np.pi/(x3/20.)
-
-        w1 = lambda k1: np.sin(x1*k1/2.) / (k1*x1/2.) 
-        w2 = lambda k2: np.sin(x2*k2/2.) / (k2*x2/2.) 
-        w3 = lambda k3: np.sin(x3*k3/2.) / (k3*x3/2.) 
-        '''
-        w1 = lambda k1: np.sin(np.pi*x1*k1) / (np.pi*k1*x1) 
-        w2 = lambda k2: np.sin(np.pi*x2*k2) / (np.pi*k2*x2) 
-        w3 = lambda k3: np.sin(np.pi*x3*k3) / (np.pi*k3*x3) 
-        '''
-        kmin = k[0]
-
-        k3 = np.linspace(kmin,kmax3,nsteps)
-        k2 = np.linspace(kmin,kmax2,nsteps)
-        k1 = np.linspace(kmin,kmax1,nsteps)
-
-        ### 3D Integral ###
-        if window=='sphere':
-            w = lambda k1,k2,k3: 3 / (norm(k1,k2,k3)*x1)**3 * (np.sin(x1*norm(k1,k2,k3)) - x1*norm(k1,k2,k3)*np.cos(x1*norm(k1,k2,k3)))
-        #        w = lambda k1,k2,k3: w1(k1) * w2(k2) * w3(k3) if 1./norm(k1,k2,k3)< 8 else 0
-        elif window=='tophat':
-            w = lambda k1,k2,k3: w1(k1) * w2(k2) * w3(k3)
-        else:
-            print("### Error ### Cosmic_variance_MC3: wrong window choices, possibilities are tophat (defaukt) or sphere")
-        Integrand1 = lambda k3,k2,k1: Pk_int(norm(k1,k2,k3)) * w(k1,k2,k3)**2        
-
-        I3 = lambda k1,k2: integrate.simps(self.Get_integrand(k3,Integrand1,k1,k2),k3)
-        I2 = lambda k1: integrate.simps(self.Get_integrand(k2,I3,k1),k2)
-        I = integrate.simps(self.Get_integrand(k1,I2),k1)
-#        I3 = lambda k2,k1: integrate.quad(Integrand,kmin,kmax3,args=(k2,k1))[0]
-#        I2 = lambda k1: integrate.quad(I3,kmin,kmax2,args=(k1))[0]
-#        I = integrate.quad(I2,kmin,kmax1)[0]
- 
-        I*= 1./ (np.pi)**3
-        return np.sqrt(I)
-
-    def Get_integrand(self,x,func,y=False,z=False):
+    def __Get_integrand(self,x,func,y=False,z=False):
         if z==False:
             if y==False:
                 I = [func(ix) for ix in x]
