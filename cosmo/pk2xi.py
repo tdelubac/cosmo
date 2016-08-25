@@ -158,7 +158,7 @@ class xi:
             w = np.append(w,simps([ n[i1] * simps([n[i2]*interp(zmu[i1][i2],dist[i1][i2])[0] if ( (dist[i1][i2] >= self.r[0]) & (dist[i1][i2] <= self.r[-1]) & (zmu[i1][i2] >= self.mu[0]) & (zmu[i1][i2] <= self.mu[-1]) ) else 0 for i2 in np.arange(len(z))],z) for i1 in np.arange(len(z)) ],z))
         return w
 
-    def w_theta(self,theta,z,n,universe):
+    def w_theta(self,theta,z,zbar,n,universe):
         '''
         Compute the angular correlation given the linear correlation function and the redshift distribution of the measurements. 
         
@@ -178,7 +178,7 @@ class xi:
             print i # debug
             cost = np.cos(itheta)
             dist = np.asarray([[ (universe.Comoving_distance(iiz1)**2 + universe.Comoving_distance(iiz2)**2 - 2*universe.Comoving_distance(iiz1)*universe.Comoving_distance(iiz2)*cost)**(1./2) for (iiz1,iiz2) in zip(iz1,iz2)] for (iz1,iz2) in zip(z1,z2)] )
-            w = np.append(w,simps([ n[i1] * simps([n[i2]*interp(dist[i1][i2]) if ( (dist[i1][i2] >= self.r[0]) & (dist[i1][i2] <= self.r[-1]) ) else 0 for i2 in np.arange(len(z))],z) for i1 in np.arange(len(z)) ],z))
+            w = np.append(w,simps([ universe.Linear_growth(z[i1])/universe.Linear_growth(zbar) * n[i1] * simps([universe.Linear_growth(z[i2])/universe.Linear_growth(zbar) * n[i2]*interp(dist[i1][i2]) if ( (dist[i1][i2] >= self.r[0]) & (dist[i1][i2] <= self.r[-1]) ) else 0 for i2 in np.arange(len(z))],z) for i1 in np.arange(len(z)) ],z))
         return w
 
 
